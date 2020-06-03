@@ -16,7 +16,7 @@ class Scope:
 
 
 def debug(text: str):
-    if True:
+    if False:
         print(text)
 
 
@@ -60,16 +60,29 @@ def detect_declarations(tokens: str):
         return current == "}"
 
     def variable_declaration():
-        if index == 56:
-            print('g')
+        assignment = next_occurrence('=', index)
+        comma = next_occurrence(',', index)
+        rp = next_occurrence(')', index)
 
-        for variable_type in types:  # try [';', ' ', '\n', '\t'] + '('
+        # (int a, int b, int c) itd
+        if assignment > comma and assignment > rp:
+            return False
+
+        for variable_type in types:
             if tokens[index:index+len(variable_type)] == variable_type and tokens[index-1] in separators:
                 return True
 
     def get_variable_declaration():
+        def check_declaration(declaration: str):
+            value = declaration[-1]
+            if value.isalpha() and not is_in_scope(value):
+                line = tokens[:index].count('\n') + 1
+                character = tokens[:index][::-1].index('\n') + 1
+                print("{}, {}: {} undeclared".format(line, character + len(declaration)-1, value))
+
         end = next_occurrence(";", index)
         declaration = tokens[index:end]
+        check_declaration(declaration)
         return declaration
 
     def get_arguments_from_scope_name(scope_name: str) -> List[str]:
@@ -86,8 +99,6 @@ def detect_declarations(tokens: str):
         left_parenthesis = previous_occurrence('(', index)
         space = previous_occurrence_from_list(separators, index-1)
         previous_space = previous_occurrence_from_list(separators, left_parenthesis-1)
-
-        a = tokens[:index]
 
         if space > right_parenthesis:  # class
             scope_name = tokens[space+1:index]
@@ -109,9 +120,26 @@ def detect_declarations(tokens: str):
             return True
 
     def variable_use():
-        left_separators = [';', ' ', '(']
-        right_separators = [';', ' ', ')']
-        if tokens[index - 1] in left_separators and tokens[index + 1] in right_separators and current.isalpha():
+        def is_variable_use_a_declaration():
+            assignment = next_occurrence('=', index)
+            comma = next_occurrence(',', index)
+            rp = next_occurrence(')', index)
+
+            # (int a, int b, int c) itd
+            if comma < assignment or rp < assignment:
+                return True
+
+        def is_variable_use():
+            left_separators = [';', ' ', '(']
+            right_separators = [';', ' ', ')']
+            return tokens[index - 1] in left_separators and tokens[index + 1] in right_separators and current.isalpha()
+
+        # todo return !is_variable_use_a_declaration() and is_variable_use()
+        if not current.isalpha():
+            return False
+        if is_variable_use_a_declaration():
+            return False
+        if is_variable_use():
             return True
 
     def get_arguments():
@@ -126,7 +154,7 @@ def detect_declarations(tokens: str):
         for s in scopes:
             if variable_name in s.variables:
                 return True
-        return False
+        return False  # todo unnecessary? None evaluates to false
 
     while index <= len(tokens)-1:
         current = tokens[index]

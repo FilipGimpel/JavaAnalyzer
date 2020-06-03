@@ -1,10 +1,12 @@
 public class MyClass {
-  public static void doSomething(int a) {
+  public static void doSomething(int a, int x, int y) {
     int c = b;
     int b = 2;
+    int z = y
     int e = b;
     if (c > 3) {
       int d = 4;
+      int k = v;
       System.out.println(a + d);
     }
     System.out.println(d);
