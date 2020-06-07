@@ -7,7 +7,7 @@ public class MyClass {
     if (c > 3) {
       int d = 4;
       int k = v;
-      System.out.println(a + d);
+      System.out.println(a + d + j);
     }
     System.out.println(d);
   }
