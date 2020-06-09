@@ -96,10 +96,10 @@ def detect_declarations(tokens: str):
         check_initialization(declaration)
         return declaration
 
-    def get_arguments_from_scope_name(scope_name: str) -> List[str]:
+    def get_function_arguments(scope_name: str) -> List[str]:
         lp = scope_name.index('(')
         rp = scope_name.index(')')
-        arguments_with_types = scope_name[lp + 1:rp].split(',')
+        arguments_with_types = filter(None, scope_name[lp + 1:rp].split(','))
         arguments = []
         for _argument in arguments_with_types:
             arguments.append(_argument.split()[1])
@@ -117,11 +117,11 @@ def detect_declarations(tokens: str):
         elif previous_space < left_parenthesis:
             scope_name = tokens[previous_space+1:index]
             if scope_name.split()[0] not in ["if", "while"]:  # function
-                args = get_arguments_from_scope_name(scope_name)
+                args = get_function_arguments(scope_name)
                 _scope = Scope(scope_name)
                 _scope.variables.extend(args)
                 return _scope
-            else:  # if or while
+            else:  # if or while todo while/if can use arguments
                 return Scope(scope_name)
         else:
             raise Exception("This should not have happened - error or malformed input")
@@ -130,18 +130,33 @@ def detect_declarations(tokens: str):
         if tokens[index] == ')' and tokens[index+1] == ';':
             return True
 
-    def variable_use():
-        def is_variable_use_function_argument():
-            assignment = next_occurrence('=', index)
-            comma = next_occurrence(',', index)
-            rp = next_occurrence(')', index)
-
-            # (int a, int b, int c) itd
-            if comma < assignment or rp < assignment:
+    def is_preceded_by_type():
+        for type in types:
+            if tokens[index-1-len(type):index-1] == type and tokens[index-1] == ' ':
                 return True
+        return False
+
+    def variable_use():
+        # def is_variable_use_function_argument():
+        #     assignment = next_occurrence('=', index)
+        #     comma = next_occurrence(',', index)
+        #     rp = next_occurrence(')', index)
+        #
+        #     # (int a, int b, int c) itd
+        #     if (comma < assignment or rp < assignment) and is_preceded_by_type():  # and not is_preceded_by_type
+        #         a = tokens[index-10:index+10]
+        #         return True
+
+        def is_variable_use_function_argument():
+            next_rp = next_occurrence('(', index)
+            next_lp = next_occurrence(')', index)
+            prev_rp = previous_occurrence(')', index)
+            prev_lp = previous_occurrence('(', index)
+
+            return next_rp < next_lp and prev_lp > prev_rp and tokens[prev_lp-1].isalpha()
 
         def is_variable_use():  # assumes there are spaces around variable use
-            left_separators = [';', ' ', '('] # todo add math operators and check for (a=b*c) itd (no spaces)
+            left_separators = [';', ' ', '(']  # todo add math operators and check for (a=b*c) itd (no spaces)
             right_separators = [';', ' ', ')']
             return tokens[index - 1] in left_separators and tokens[index + 1] in right_separators and current.isalpha()
 
@@ -167,6 +182,9 @@ def detect_declarations(tokens: str):
                 return True
         return False  # todo unnecessary? None evaluates to false
 
+    def indexes_of_chars_in_string(chars: List[str], string: str) -> List[int]:
+        return [i for i, ltr in enumerate(string) if ltr in chars]
+
     while index <= len(tokens)-1:
         current = tokens[index]
         if variable_declaration():
@@ -182,19 +200,21 @@ def detect_declarations(tokens: str):
         elif scope_end():
             debug("END SCOPE " + scopes[-1].name)
             scopes.pop(-1)
-        elif function_call():  #w ogole to usunac bo po co wiedziec ze jest function call? variable use i elo
-            arguments = get_function_call_arguments()
-            debug("WITH ARGUMENTS " + arguments)  # check if we can use them
-            arguments = [x for x in arguments.split() if x.isalpha()]
-            for arg in arguments:
-                if not is_in_scope(arg):
-                    line = tokens[:index].count('\n') + 1
-                    character = tokens[:index][::-1].index('\n')
-                    print("{}, {}: {} undeclared".format(line, character, arg))
+        elif function_call():
+            arguments_string = get_function_call_arguments()
+            debug("WITH ARGUMENTS " + arguments_string)
+            undeclared_arguments = [x for x in arguments_string.split() if x.isalpha() and not is_in_scope(x)]
+            undeclared_argument_indexes = indexes_of_chars_in_string(undeclared_arguments, arguments_string)
+            character = tokens[:index-len(arguments_string) + 1][::-1].index('\n')
+            line = tokens[:index].count('\n') + 1
+            for arg_index in undeclared_argument_indexes:
+                a = tokens[index - 10:index + 10]
+                print("{}, {}: {} undeclared".format(line, character + arg_index, arguments_string[arg_index]))
         elif variable_use():  # todo outside function call
             if not is_in_scope(current):
                 line = tokens[:index].count('\n') + 1
                 character = tokens[:index][::-1].index('\n') + 1
+                a = tokens[index - 10:index + 10]
                 print("{}, {}: {} undeclared".format(line, character, current))
 
         index += 1
