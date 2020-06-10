@@ -1,8 +1,12 @@
-public class MyClass {
-public void printThree() { int i = 3; System.out.println(i); }
-void printFirstTenSquares() {
-while (i <= 10) {
-System.out.println(i * i); i = i + 1;
-}
-}
+class MyClass {
+  void doSomething(int f) {
+    int a = 2;
+    int b = 3;
+    System.out.println(b);
+    int b = 4;
+    System.out.println(a);
+    System.out.println(c);
+    int e = 4;
+    e = e + 1;
+  }
 }

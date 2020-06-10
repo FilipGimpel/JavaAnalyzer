@@ -34,7 +34,7 @@ def detect_declarations(tokens: str):
                 return start_index + counter
             else:
                 counter += 1
-        return -1
+        return len(tokens)
 
     def previous_occurrence_from_list(characters: List[str], start_index: int) -> int:
         counter = -1
@@ -61,7 +61,7 @@ def detect_declarations(tokens: str):
         return current == "}"
 
     def variable_declaration():
-        """ Checks whether we've stumbled upon variable declaration ex. "int a = 4" """
+        """ Checks whether we've stumbled upon variable declaration ex. "int a = 4;" """
 
         def is_variable_declaration():
             """ Checks whether found declaration ex "int a" """
@@ -89,7 +89,8 @@ def detect_declarations(tokens: str):
             if value.isalpha() and not is_in_scope(value):
                 line = tokens[:index].count('\n') + 1
                 character = tokens[:index][::-1].index('\n') + 1
-                print("{}, {}: {} undeclared".format(line, character + len(declaration) - 1, value))
+                print("{}, {}: {} undeclared (variable initialized with unused)"
+                      .format(line, character + len(declaration) - 1, value))
 
         delimiter = next_occurrence(";", index)
         declaration = tokens[index:delimiter]
@@ -121,52 +122,36 @@ def detect_declarations(tokens: str):
                 _scope = Scope(scope_name)
                 _scope.variables.extend(args)
                 return _scope
-            else:  # if or while todo while/if can use arguments
+            else:  # if or while
                 return Scope(scope_name)
         else:
             raise Exception("This should not have happened - error or malformed input")
 
-    def function_call():  # TODO this will get fucked up for (a*a);
-        if tokens[index] == ')' and tokens[index+1] == ';':
+    def function_call():
+        if tokens[index] == ')' and tokens[index+1] == ';' and tokens[previous_occurrence('(', index)-1].isalpha():
             return True
 
-    def is_preceded_by_type():
-        for type in types:
-            if tokens[index-1-len(type):index-1] == type and tokens[index-1] == ' ':
-                return True
-        return False
-
     def variable_use():
-        # def is_variable_use_function_argument():
-        #     assignment = next_occurrence('=', index)
-        #     comma = next_occurrence(',', index)
-        #     rp = next_occurrence(')', index)
-        #
-        #     # (int a, int b, int c) itd
-        #     if (comma < assignment or rp < assignment) and is_preceded_by_type():  # and not is_preceded_by_type
-        #         a = tokens[index-10:index+10]
-        #         return True
-
         def is_variable_use_function_argument():
-            next_rp = next_occurrence('(', index)
-            next_lp = next_occurrence(')', index)
+            next_rp = next_occurrence(')', index)
+            next_lp = next_occurrence('(', index)
             prev_rp = previous_occurrence(')', index)
             prev_lp = previous_occurrence('(', index)
 
             return next_rp < next_lp and prev_lp > prev_rp and tokens[prev_lp-1].isalpha()
 
-        def is_variable_use():  # assumes there are spaces around variable use
-            left_separators = [';', ' ', '(']  # todo add math operators and check for (a=b*c) itd (no spaces)
-            right_separators = [';', ' ', ')']
-            return tokens[index - 1] in left_separators and tokens[index + 1] in right_separators and current.isalpha()
+        def is_variable_use():
+            left_separators = [';', ' ', '(', '=', '*', '+', '-', '/']
+            right_separators = [';', ' ', ')', '=', '*', '+', '-', '/']
+            return tokens[index - 1] in left_separators and tokens[index + 1] in right_separators
 
-        # todo return !is_variable_use_a_declaration() and is_variable_use()
         if not current.isalpha():
             return False
         if is_variable_use_function_argument():
             return False
         if is_variable_use():
             return True
+        # else: just a character we don't care about (ie part of function name, itd)
 
     def get_function_call_arguments():
         left_parenthesis = previous_occurrence('(', index)
@@ -180,7 +165,7 @@ def detect_declarations(tokens: str):
         for s in scopes:
             if variable_name in s.variables:
                 return True
-        return False  # todo unnecessary? None evaluates to false
+        return False
 
     def indexes_of_chars_in_string(chars: List[str], string: str) -> List[int]:
         return [i for i, ltr in enumerate(string) if ltr in chars]
@@ -208,14 +193,12 @@ def detect_declarations(tokens: str):
             character = tokens[:index-len(arguments_string) + 1][::-1].index('\n')
             line = tokens[:index].count('\n') + 1
             for arg_index in undeclared_argument_indexes:
-                a = tokens[index - 10:index + 10]
-                print("{}, {}: {} undeclared".format(line, character + arg_index, arguments_string[arg_index]))
+                print("{}, {}: {} undeclared (function call)".format(line, character + arg_index, arguments_string[arg_index]))
         elif variable_use():  # todo outside function call
             if not is_in_scope(current):
                 line = tokens[:index].count('\n') + 1
                 character = tokens[:index][::-1].index('\n') + 1
-                a = tokens[index - 10:index + 10]
-                print("{}, {}: {} undeclared".format(line, character, current))
+                print("{}, {}: {} undeclared (variable use)".format(line, character, current))
 
         index += 1
 
